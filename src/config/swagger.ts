@@ -1,5 +1,8 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 
+// Determine the server URL based on environment
+const serverUrl = process.env.BASE_URL || 'http://localhost:3000';
+
 const options: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.0',
@@ -17,8 +20,8 @@ const options: swaggerJsdoc.Options = {
     },
     servers: [
       {
-        url: 'http://localhost:3000',
-        description: 'Development server'
+        url: serverUrl,
+        description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server'
       }
     ],
     components: {

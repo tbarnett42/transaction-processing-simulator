@@ -2,21 +2,33 @@
 
 A backend service that simulates real-world transaction processing workflows with authentication, webhooks, and batch processing.
 
+## Why I Built This
+
+I built this project based on my 7 years of experience in payments operations at Navy Federal Credit Union. I'm transitioning into application engineering, and I wanted to demonstrate that I understand not just the operations side, but the technical systems behind it.
+
+The design decisions — the rules engine, transaction lifecycle, webhook system — are based on patterns I've worked with in production financial systems. This simulator mirrors real-world payment workflows including fraud detection, compliance checks, and settlement processes.
+
+**Tech Stack:** TypeScript, Node.js, Express, MongoDB
+
 ![Swagger UI](./docs/screenshots/swagger-ui.png)
 
-## ✨ Features
+---
 
-- **🔐 JWT Authentication** - Secure login/register with role-based access control (admin, operator, user)
-- **💳 Transaction Management** - Full lifecycle: create, process, cancel, refund, retry
-- **⚙️ Rules Engine** - Define business rules to evaluate and validate transactions
-- **🔔 Webhooks** - Subscribe to transaction events with automatic retries and HMAC signatures
-- **📦 Batch Processing** - Bulk operations for high-volume scenarios
-- **🛡️ Rate Limiting** - API protection against abuse
-- **📖 Swagger/OpenAPI** - Interactive API documentation
-- **🗄️ MongoDB Support** - Optional persistence with in-memory fallback
-- **📊 Error Logging** - Comprehensive error tracking with Winston
+## Features
 
-## 🚀 Quick Start
+- **JWT Authentication** - Secure login/register with role-based access control (admin, operator, user)
+- **Transaction Management** - Full lifecycle: create, process, cancel, refund, retry
+- **Rules Engine** - Define business rules to evaluate and validate transactions
+- **Webhooks** - Subscribe to transaction events with automatic retries and HMAC signatures
+- **Batch Processing** - Bulk operations for high-volume scenarios
+- **Rate Limiting** - API protection against abuse
+- **Swagger/OpenAPI** - Interactive API documentation
+- **MongoDB Support** - Optional persistence with in-memory fallback
+- **Error Logging** - Comprehensive error tracking with Winston
+
+---
+
+## Quick Start
 
 ### Prerequisites
 - Node.js 18+ 
@@ -27,7 +39,7 @@ A backend service that simulates real-world transaction processing workflows wit
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/transaction-processing-simulator.git
+git clone https://github.com/tbarnett42/transaction-processing-simulator.git
 cd transaction-processing-simulator
 
 # Install dependencies
@@ -48,19 +60,139 @@ npm test
 
 The server will start at **http://localhost:3000**
 
-### 🔑 Default Login
+### Default Login
 ```
 Email: admin@example.com
 Password: admin123
 ```
 
-## 📖 API Documentation
+---
+
+## API Documentation
 
 Visit **http://localhost:3000/api-docs** for interactive Swagger documentation.
 
-![API Endpoints](./docs/screenshots/api-endpoints.png)
+---
 
-## 🔌 API Endpoints
+## Architecture
+
+```
+src/
+├── config/                 # Configuration
+│   ├── index.ts            # Main config (port, env, JWT settings)
+│   ├── database.ts         # MongoDB connection with in-memory fallback
+│   └── swagger.ts          # OpenAPI specification
+│
+├── middleware/             # Express middleware (runs on every request)
+│   ├── auth.ts             # JWT token verification
+│   ├── rateLimiter.ts      # Prevents abuse (stricter on login endpoints)
+│   ├── logging.ts          # Request/response logging
+│   ├── validation.ts       # Input validation
+│   └── errorHandler.ts     # Catches errors, returns clean responses
+│
+├── routes/                 # API route definitions (traffic directors)
+│   ├── index.ts            # Mounts all route modules
+│   ├── authRoutes.ts       # /api/auth/*
+│   ├── transactionRoutes.ts# /api/transactions/*
+│   ├── rulesRoutes.ts      # /api/rules/*
+│   ├── webhookRoutes.ts    # /api/webhooks/*
+│   └── batchRoutes.ts      # /api/batch/*
+│
+├── controllers/            # Request handlers (validate input, call services)
+│
+├── services/               # Business logic (where the real work happens)
+│   ├── AuthService.ts      # Login, registration, JWT generation
+│   ├── TransactionService.ts # Transaction lifecycle management
+│   ├── RulesEngine.ts      # Evaluates fraud/compliance rules
+│   ├── WebhookService.ts   # Notifies external systems
+│   ├── BatchService.ts     # Bulk operations
+│   └── ErrorLogger.ts      # Structured error tracking
+│
+├── models/                 # TypeScript interfaces & types
+│   └── schemas/            # Mongoose schemas for MongoDB
+│
+└── index.ts                # Application entry point
+```
+
+### Request Flow
+
+```
+User Request (POST /api/transactions)
+         │
+         ▼
+    index.ts ──────────────── Middleware runs (logging, rate limiting, auth)
+         │
+         ▼
+    routes/index.ts ───────── Directs to transactionRoutes.ts
+         │
+         ▼
+    transactionRoutes.ts ──── Matches endpoint, calls controller
+         │
+         ▼
+    controller ────────────── Validates input, calls service
+         │
+         ▼
+    TransactionService.ts ─── Creates transaction, calls RulesEngine
+         │
+         ▼
+    RulesEngine.ts ────────── Evaluates rules, returns ALLOW/DENY
+         │
+         ▼
+    Response to user
+         │
+         ▼
+    WebhookService.ts ──────── Notifies subscribed external systems (async)
+```
+
+---
+
+## Transaction Lifecycle
+
+```
+PENDING ──▶ VALIDATING ──▶ PROCESSING ──▶ COMPLETED
+   │            │              │              │
+   ▼            ▼              ▼              ▼
+CANCELLED    FAILED         FAILED       REFUNDED
+                │
+                ▼
+          PENDING (retry, max 3 attempts)
+```
+
+| Status | Description |
+|--------|-------------|
+| PENDING | Transaction created, waiting to be processed |
+| VALIDATING | Rules engine checking fraud/compliance |
+| PROCESSING | Transaction in progress |
+| COMPLETED | Successfully finished |
+| FAILED | Something went wrong (can be retried) |
+| CANCELLED | Stopped before completion |
+| REFUNDED | Reversed after completion |
+
+---
+
+## Rules Engine
+
+The rules engine evaluates every transaction against configurable business rules.
+
+### Rule Actions
+
+| Action | Behavior | Example Use Case |
+|--------|----------|------------------|
+| ALLOW | Transaction proceeds | Normal transaction |
+| DENY | Transaction blocked | Exceeds $100k limit |
+| FLAG | Proceeds but marked for review | Unusual pattern |
+| REQUIRE_APPROVAL | Needs supervisor approval | Large transfer |
+
+### Default Rules
+
+1. **Very High Amount Block** - Blocks transactions over $100,000
+2. **High Amount Threshold** - Flags transactions over $10,000
+3. **Minimum Amount** - Rejects transactions below $0.01
+4. **Supported Currencies** - Only allows USD, EUR, GBP
+
+---
+
+## API Endpoints
 
 ### Authentication
 
@@ -113,16 +245,9 @@ Visit **http://localhost:3000/api-docs** for interactive Swagger documentation.
 | POST | `/api/batch/cancel` | Cancel multiple transactions |
 | POST | `/api/batch/retry` | Retry multiple failed transactions |
 
-### Errors
+---
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/errors` | List all errors |
-| GET | `/api/errors/unresolved` | List unresolved errors |
-| GET | `/api/errors/stats` | Get error statistics |
-| POST | `/api/errors/:id/resolve` | Mark error as resolved |
-
-## 🔧 Configuration
+## Configuration
 
 Create a `.env` file in the root directory:
 
@@ -139,19 +264,9 @@ JWT_SECRET=your-super-secret-key-change-in-production
 JWT_EXPIRES_IN=24h
 ```
 
-## 💡 Usage Examples
+---
 
-### Register a User
-
-```bash
-curl -X POST http://localhost:3000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "password123",
-    "name": "John Doe"
-  }'
-```
+## Usage Examples
 
 ### Login and Get Token
 
@@ -164,7 +279,7 @@ curl -X POST http://localhost:3000/api/auth/login \
   }'
 ```
 
-### Create a Transaction (with auth)
+### Create a Transaction
 
 ```bash
 curl -X POST http://localhost:3000/api/transactions \
@@ -187,97 +302,9 @@ curl -X POST http://localhost:3000/api/transactions/{id}/process \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
-### Create a Webhook Subscription
+---
 
-```bash
-curl -X POST http://localhost:3000/api/webhooks \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -d '{
-    "url": "https://your-server.com/webhook",
-    "events": ["transaction.completed", "transaction.failed"],
-    "secret": "your-webhook-secret"
-  }'
-```
-
-### Create a Custom Rule
-
-```bash
-curl -X POST http://localhost:3000/api/rules \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Block Large Transfers",
-    "description": "Block transfers over $50,000",
-    "condition": {
-      "type": "COMPOSITE",
-      "operator": "AND",
-      "children": [
-        { "type": "TRANSACTION_TYPE", "operator": "EQ", "value": "TRANSFER", "field": "type" },
-        { "type": "AMOUNT_THRESHOLD", "operator": "GT", "value": 50000, "field": "amount" }
-      ]
-    },
-    "action": "DENY",
-    "severity": "CRITICAL",
-    "priority": 0
-  }'
-```
-
-## Transaction Types
-
-- `PAYMENT` - Standard payment transaction
-- `TRANSFER` - Transfer between accounts
-- `WITHDRAWAL` - Withdrawal from account
-- `DEPOSIT` - Deposit to account
-- `REFUND` - Refund transaction
-
-## Transaction Status Lifecycle
-
-```
-PENDING → VALIDATING → PROCESSING → COMPLETED
-    ↓         ↓            ↓
-CANCELLED   FAILED       FAILED
-              ↓
-           PENDING (retry)
-
-COMPLETED → REFUNDED
-```
-
-## Default Rules
-
-1. **Very High Amount Block**: Blocks transactions over $100,000
-2. **High Amount Threshold**: Flags transactions over $10,000
-3. **Minimum Amount**: Rejects transactions below $0.01
-4. **Supported Currencies**: Only allows USD, EUR, GBP
-
-## 📁 Project Structure
-
-```
-src/
-├── config/              # Configuration
-│   ├── index.ts         # Main config
-│   ├── database.ts      # MongoDB connection
-│   └── swagger.ts       # OpenAPI specification
-├── controllers/         # Request handlers
-├── middleware/          # Express middleware
-│   ├── auth.ts          # JWT authentication
-│   ├── rateLimiter.ts   # Rate limiting
-│   ├── logging.ts       # Request logging
-│   ├── validation.ts    # Input validation
-│   └── errorHandler.ts  # Error handling
-├── models/              # TypeScript interfaces & types
-│   └── schemas/         # Mongoose schemas
-├── routes/              # API route definitions
-├── services/            # Business logic
-│   ├── AuthService.ts   # JWT & user management
-│   ├── TransactionService.ts
-│   ├── RulesEngine.ts
-│   ├── WebhookService.ts
-│   ├── BatchService.ts
-│   └── ErrorLogger.ts
-└── index.ts             # Application entry point
-```
-
-## 🔒 Security Features
+## Security Features
 
 - **Password Hashing** - bcrypt with configurable salt rounds
 - **JWT Tokens** - Secure token-based authentication
@@ -286,7 +313,9 @@ src/
 - **HMAC Signatures** - Webhook payload verification
 - **Input Validation** - Request payload validation
 
-## 🧪 Testing
+---
+
+## Testing
 
 ```bash
 # Run all tests
@@ -296,18 +325,8 @@ npm test
 npm test -- --coverage
 ```
 
-## 📜 License
-
-MIT
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
 ---
 
-Made with ❤️ using Node.js, TypeScript, and Express
+## License
+
+MIT
