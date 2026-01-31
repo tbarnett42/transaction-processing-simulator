@@ -30,9 +30,6 @@ The design decisions — the rules engine, transaction lifecycle, webhook system
 - **Error Logging** - Comprehensive error tracking with Winston
 
 
-
-## Quick Start
-
 ### Prerequisites
 - Node.js 18+ 
 - npm or yarn
