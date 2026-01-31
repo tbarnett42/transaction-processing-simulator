@@ -6,6 +6,7 @@ import { UserModel, UserDocument, User } from '../models/schemas/UserSchema';
 import { isMongoConnected } from '../config/database';
 import { errorLogger } from './ErrorLogger';
 import { ErrorSeverity, ErrorCategory } from '../models';
+import logger from '../config/logger';
 
 // In-memory user storage (fallback when MongoDB is not available)
 const inMemoryUsers: Map<string, User & { password: string }> = new Map();
@@ -49,7 +50,7 @@ export class AuthService {
           name: 'System Admin',
           role: 'admin'
         });
-        console.log('✓ Default admin user created (admin@example.com / admin123)');
+        logger.info('Default admin user created', { email: 'admin@example.com' });
       }
     } catch (error) {
       // Silent fail for default admin creation
