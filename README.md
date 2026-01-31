@@ -29,6 +29,21 @@ The design decisions — the rules engine, transaction lifecycle, webhook system
 - **MongoDB Support** - Optional persistence with in-memory fallback
 - **Error Logging** - Comprehensive error tracking with Winston
 
+<<<<<<< Updated upstream
+=======
+---
+
+## Recruiter Snapshot
+This project demonstrates:
+- Secure authentication (JWT + RBAC)
+- Transaction lifecycle management + business rules engine validation
+- Event-driven integrations via webhooks (HMAC + retries)
+- Production deployment with live API documentation
+
+---
+
+## Quick Start
+>>>>>>> Stashed changes
 
 ### Prerequisites
 - Node.js 18+ 
