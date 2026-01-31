@@ -100,8 +100,9 @@ describe('ErrorLogger', () => {
       expect(errors).toHaveLength(2);
     });
 
-    it('should return errors sorted by timestamp (newest first)', () => {
+    it('should return errors sorted by timestamp (newest first)', async () => {
       errorLogger.logError(ErrorSeverity.ERROR, ErrorCategory.SYSTEM, 'E001', 'First');
+      await new Promise(resolve => setTimeout(resolve, 10));
       errorLogger.logError(ErrorSeverity.ERROR, ErrorCategory.SYSTEM, 'E002', 'Second');
 
       const errors = errorLogger.getAllErrors();
